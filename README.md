@@ -3,28 +3,19 @@
 ![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
 ![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)
 
-<!--- Replace repository name -->
-![License](https://badgen.net/github/license/getindata/terraform-module-template/)
-![Release](https://badgen.net/github/release/getindata/terraform-module-template/)
+_Project Description:_
 
-<p align="center">
-  <img height="150" src="https://getindata.com/img/logo.svg">
-  <h3 align="center">We help companies turn their data into assets</h3>
-</p>
+* _What it does: This service enables secure file sharing and analysis. The platform will process and summarize sensitive medical documents, ensuring compliance with security standards and providing alerts for high-severity security findings. This project can serve as a prototype for a secure document management and analysis system for a healthcare organization. It ensures that sensitive files (e.g., medical records) are securely uploaded, processed, and analyzed while adhering to strict security standards._
 
----
+* _What technologies it uses: Terraform, Shell, Python, EC2, S3, IAM, KMS, CONFIG, Workspaces, Security Hub, Event Bridge, SNS, Lambda, and Cloudwatch_
 
-_Brief Description of MODULE:_
 
-* _What it does_
-* _What technologies it uses_
+## Usage/Architecture Overview
 
-> **Warning**:
-> _When using "Invicton-Labs/deepmerge/null" module - pin `tflint` version to `v0.41.0` in [pre-commit.yaml](.github/workflows/pre-commit.yml) to avoid failing `tflint` checks_
+_At this time the admin user, me, will upload all the documents to the original S3 bucket. Once the file is uploaded to the S3 bucket an S3 Event will trigger a Lambda function. This Lambda function will deliver the S3 document to the EC2 instance. The EC2 instance is required to be running 24/7. The EC2 instance will process and summarize the medical document using spaCy. SpaCy is an open-source software library for advanced natural language processing. At the time of writing this I have elected to comment out the portion of the shell script where spaCy will summarize the document. I was having difficulty implementing that portion of the project and skipping over it allows me to showcase my ability to implement with all the services mentioned above. I will circle back and learn to work with spaCy in the future. Once it has summarized the medical document it will send it to the summarized S3 bucket. End users at the medical office will use AWS Workspaces to login and securely access both the original medical documents and the summarized documents. 
 
-## USAGE
-
-_Example usage of the module - terraform code snippet_
+Considering the stringent security compliance for healthcare information we will use a combination of IAM, AWS KMS, AWS Config, Security Hub, Event Bridge, and SNS to harden our infrastructure. IAM will ensure users and services can communicate with one another while maintaining the principle of least privilege. AWS KMS will provide our file encryption. This is the superior choice to SSE S3 for this application as KMS can provide an audit trail for all KMS actions. AWS Config must be enabled to utilize Security Hub. Security Hub will monitor our infrastructure for findings based on AWS Foundational Security Best Practices, CIS AWS Foundations Benchmarks, and PCI DSS. When findings occur, we have created an EventBridge Rule to import the finding and send the details to SNS where our security team can be notified and review the findings. 
+CloudWatch is currently being implemented for troubleshooting communication difficulties. _
 
 ```terraform
 module "template" {
@@ -39,91 +30,11 @@ module "template" {
 
 _Additional information that should be made public, for ex. how to solve known issues, additional descriptions/suggestions_
 
-## EXAMPLES
-
-- [Simple](examples/simple) - Basic usage of the module
-- [Complete](examples/complete) - Advanced usage of the module
 
 <!-- BEGIN_TF_DOCS -->
 
 
-
-
-## Inputs
-
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_additional_tag_map"></a> [additional\_tag\_map](#input\_additional\_tag\_map) | Additional key-value pairs to add to each map in `tags_as_list_of_maps`. Not added to `tags` or `id`.<br>This is for some rare cases where resources want additional configuration of tags<br>and therefore take a list of maps with tag key, value, and additional configuration. | `map(string)` | `{}` | no |
-| <a name="input_attributes"></a> [attributes](#input\_attributes) | ID element. Additional attributes (e.g. `workers` or `cluster`) to add to `id`,<br>in the order they appear in the list. New attributes are appended to the<br>end of the list. The elements of the list are joined by the `delimiter`<br>and treated as a single ID element. | `list(string)` | `[]` | no |
-| <a name="input_context"></a> [context](#input\_context) | Single object for setting entire context at once.<br>See description of individual variables for details.<br>Leave string and numeric variables as `null` to use default value.<br>Individual variable settings (non-null) override settings in context object,<br>except for attributes, tags, and additional\_tag\_map, which are merged. | `any` | <pre>{<br>  "additional_tag_map": {},<br>  "attributes": [],<br>  "delimiter": null,<br>  "descriptor_formats": {},<br>  "enabled": true,<br>  "environment": null,<br>  "id_length_limit": null,<br>  "label_key_case": null,<br>  "label_order": [],<br>  "label_value_case": null,<br>  "labels_as_tags": [<br>    "unset"<br>  ],<br>  "name": null,<br>  "namespace": null,<br>  "regex_replace_chars": null,<br>  "stage": null,<br>  "tags": {},<br>  "tenant": null<br>}</pre> | no |
-| <a name="input_delimiter"></a> [delimiter](#input\_delimiter) | Delimiter to be used between ID elements.<br>Defaults to `-` (hyphen). Set to `""` to use no delimiter at all. | `string` | `null` | no |
-| <a name="input_descriptor_formats"></a> [descriptor\_formats](#input\_descriptor\_formats) | Describe additional descriptors to be output in the `descriptors` output map.<br>Map of maps. Keys are names of descriptors. Values are maps of the form<br>`{<br>   format = string<br>   labels = list(string)<br>}`<br>(Type is `any` so the map values can later be enhanced to provide additional options.)<br>`format` is a Terraform format string to be passed to the `format()` function.<br>`labels` is a list of labels, in order, to pass to `format()` function.<br>Label values will be normalized before being passed to `format()` so they will be<br>identical to how they appear in `id`.<br>Default is `{}` (`descriptors` output will be empty). | `any` | `{}` | no |
-| <a name="input_descriptor_name"></a> [descriptor\_name](#input\_descriptor\_name) | Name of the descriptor used to form a resource name | `string` | `"resource-type"` | no |
-| <a name="input_enabled"></a> [enabled](#input\_enabled) | Set to false to prevent the module from creating any resources | `bool` | `null` | no |
-| <a name="input_environment"></a> [environment](#input\_environment) | ID element. Usually used for region e.g. 'uw2', 'us-west-2', OR role 'prod', 'staging', 'dev', 'UAT' | `string` | `null` | no |
-| <a name="input_example_var"></a> [example\_var](#input\_example\_var) | Example variable passed into the module | `string` | n/a | yes |
-| <a name="input_id_length_limit"></a> [id\_length\_limit](#input\_id\_length\_limit) | Limit `id` to this many characters (minimum 6).<br>Set to `0` for unlimited length.<br>Set to `null` for keep the existing setting, which defaults to `0`.<br>Does not affect `id_full`. | `number` | `null` | no |
-| <a name="input_label_key_case"></a> [label\_key\_case](#input\_label\_key\_case) | Controls the letter case of the `tags` keys (label names) for tags generated by this module.<br>Does not affect keys of tags passed in via the `tags` input.<br>Possible values: `lower`, `title`, `upper`.<br>Default value: `title`. | `string` | `null` | no |
-| <a name="input_label_order"></a> [label\_order](#input\_label\_order) | The order in which the labels (ID elements) appear in the `id`.<br>Defaults to ["namespace", "environment", "stage", "name", "attributes"].<br>You can omit any of the 6 labels ("tenant" is the 6th), but at least one must be present. | `list(string)` | `null` | no |
-| <a name="input_label_value_case"></a> [label\_value\_case](#input\_label\_value\_case) | Controls the letter case of ID elements (labels) as included in `id`,<br>set as tag values, and output by this module individually.<br>Does not affect values of tags passed in via the `tags` input.<br>Possible values: `lower`, `title`, `upper` and `none` (no transformation).<br>Set this to `title` and set `delimiter` to `""` to yield Pascal Case IDs.<br>Default value: `lower`. | `string` | `null` | no |
-| <a name="input_labels_as_tags"></a> [labels\_as\_tags](#input\_labels\_as\_tags) | Set of labels (ID elements) to include as tags in the `tags` output.<br>Default is to include all labels.<br>Tags with empty values will not be included in the `tags` output.<br>Set to `[]` to suppress all generated tags.<br>**Notes:**<br>  The value of the `name` tag, if included, will be the `id`, not the `name`.<br>  Unlike other `null-label` inputs, the initial setting of `labels_as_tags` cannot be<br>  changed in later chained modules. Attempts to change it will be silently ignored. | `set(string)` | <pre>[<br>  "default"<br>]</pre> | no |
-| <a name="input_name"></a> [name](#input\_name) | ID element. Usually the component or solution name, e.g. 'app' or 'jenkins'.<br>This is the only ID element not also included as a `tag`.<br>The "name" tag is set to the full `id` string. There is no tag with the value of the `name` input. | `string` | `null` | no |
-| <a name="input_namespace"></a> [namespace](#input\_namespace) | ID element. Usually an abbreviation of your organization name, e.g. 'eg' or 'cp', to help ensure generated IDs are globally unique | `string` | `null` | no |
-| <a name="input_regex_replace_chars"></a> [regex\_replace\_chars](#input\_regex\_replace\_chars) | Terraform regular expression (regex) string.<br>Characters matching the regex will be removed from the ID elements.<br>If not set, `"/[^a-zA-Z0-9-]/"` is used to remove all characters other than hyphens, letters and digits. | `string` | `null` | no |
-| <a name="input_stage"></a> [stage](#input\_stage) | ID element. Usually used to indicate role, e.g. 'prod', 'staging', 'source', 'build', 'test', 'deploy', 'release' | `string` | `null` | no |
-| <a name="input_sub_resource"></a> [sub\_resource](#input\_sub\_resource) | Some other resource that is part of stack/module | <pre>object({<br>    descriptor_name = optional(string, "sub-resource-type")<br>    example_var     = string<br>  })</pre> | n/a | yes |
-| <a name="input_tags"></a> [tags](#input\_tags) | Additional tags (e.g. `{'BusinessUnit': 'XYZ'}`).<br>Neither the tag keys nor the tag values will be modified by this module. | `map(string)` | `{}` | no |
-| <a name="input_tenant"></a> [tenant](#input\_tenant) | ID element \_(Rarely used, not included by default)\_. A customer identifier, indicating who this instance of a resource is for | `string` | `null` | no |
-
-## Modules
-
-| Name | Source | Version |
-|------|--------|---------|
-| <a name="module_subresource_label"></a> [subresource\_label](#module\_subresource\_label) | cloudposse/label/null | 0.25.0 |
-| <a name="module_this"></a> [this](#module\_this) | cloudposse/label/null | 0.25.0 |
-
-## Outputs
-
-| Name | Description |
-|------|-------------|
-| <a name="output_example_output"></a> [example\_output](#output\_example\_output) | Example output of the module |
-
-## Providers
-
-| Name | Version |
-|------|---------|
-| <a name="provider_null"></a> [null](#provider\_null) | 3.1.1 |
-
-## Requirements
-
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.3.0 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | 3.1.1 |
-
-## Resources
-
-| Name | Type |
-|------|------|
-| [null_resource.output_input](https://registry.terraform.io/providers/hashicorp/null/3.1.1/docs/resources/resource) | resource |
-| [null_resource.subresource](https://registry.terraform.io/providers/hashicorp/null/3.1.1/docs/resources/resource) | resource |
-<!-- END_TF_DOCS -->
-
-## CONTRIBUTING
-
-Contributions are very welcomed!
-
-Start by reviewing [contribution guide](CONTRIBUTING.md) and our [code of conduct](CODE_OF_CONDUCT.md). After that, start coding and ship your changes by creating a new PR.
-
-## LICENSE
-
-Apache 2 Licensed. See [LICENSE](LICENSE) for full details.
-
-## AUTHORS
+## AUTHOR
 
 <!--- Replace repository name -->
-<a href="https://github.com/getindata/REPO_NAME/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=getindata/terraform-module-template" />
-</a>
-
-Made with [contrib.rocks](https://contrib.rocks).
+https://github.com/Greg-Kiser

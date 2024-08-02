@@ -5,6 +5,9 @@
 *.tfstate
 *.tfstate.*
 
+# Project Notes
+*.docx*
+
 # Crash log files
 crash.log
 crash.*.log
