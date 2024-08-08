@@ -6,7 +6,7 @@ provider "aws" {
 
 
 resource "aws_s3_bucket" "original_reports" {
-  bucket = "original-medical-reports-gk"
+  bucket = var.original_reports_bucket
   
 }
 
@@ -33,33 +33,8 @@ resource "aws_lambda_permission" "allow_s3_invoke" {
   source_arn    = aws_s3_bucket.original_reports.arn
 }
 
-#Apply the KMS SSE configuration to the summarized reports bucket
-resource "aws_s3_bucket_server_side_encryption_configuration" "original_reports_encryption" {
-  bucket = aws_s3_bucket.original_reports.bucket
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = "aws:kms"
-      kms_master_key_id = aws_kms_key.s3_bucket_key.id
-    }
-  }
-}
-
-
 resource "aws_s3_bucket" "summarized_reports" {
-  bucket = "summarized-medical-reports-gk"
-  
-}
-#Apply the KMS SSE configuration to the summarized reports bucket
-resource "aws_s3_bucket_server_side_encryption_configuration" "summarized_reports_encryption" {
-  bucket = aws_s3_bucket.summarized_reports.bucket
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = "aws:kms"
-      kms_master_key_id = aws_kms_key.s3_bucket_key.id
-    }
-  }
+  bucket = var.summarized_reports_bucket
 }
 
 #Delivery Bucket for Config
@@ -68,10 +43,9 @@ resource "aws_s3_bucket" "config_bucket" {
 }
 
 resource "aws_instance" "file_processor" {
-  ami           = "ami-0427090fd1714168b"  # Amazon Linux
+  ami           = var.EC2_ami # Amazon Linux
   instance_type = "t2.micro"
   iam_instance_profile =  aws_iam_instance_profile.ec2_instance_profile.name
-  security_groups = [aws_security_group.allow_ssh.name]
 
    user_data = file("file_processor.sh")
 
@@ -81,20 +55,41 @@ resource "aws_instance" "file_processor" {
 }
 
 /*
-resource "aws_workspaces_workspace" "workspace" {
-  directory_id = "d-9067ecfa60"  # Use a relevant directory ID
-  bundle_id    = "wsb-6cbvhvv9f"  # Use a relevant bundle
-  user_name    = "Greg"
-  root_volume_encryption_enabled = true
-  user_volume_encryption_enabled = true
-  volume_encryption_key = "arn:aws:kms:us-east-1:905418112205:key/a440a174-a107-4210-810c-9db04595b28f"
+#Creating the Workspaces Directory 
+resource "aws_directory_service_directory" "workspaces_directory" {
+  name = "securefile.example.com"
+  short_name = "securefile"
+  password = var.directory_password
+  type = "SimpleAD" 
+  size = "Small"
+  vpc_settings {
+    vpc_id     = var.vpc_id
+    subnet_ids = [
+      var.subnet1_id, 
+      var.subnet2_id
+      ]
+  }
+}
 
+#Register the Directory
+resource "aws_workspaces_directory" "directory" {
+  directory_id = aws_directory_service_directory.workspaces_directory.id
+}
+
+
+#Create a WorkSpace Desktop
+resource "aws_workspaces_workspace" "workspace" {
+  directory_id = aws_directory_service_directory.workspaces_directory.id
+  bundle_id    = var.workspace_bundle  # Use a relevant bundle
+  user_name    = var.workspace_user
   workspace_properties {
     running_mode                              = "AUTO_STOP"
+     running_mode_auto_stop_timeout_in_minutes = 60  # Ensure this value is within the permissible range
  } 
+
+depends_on = [ aws_workspaces_directory.directory ]
 }
 */
-
 #Create an SNS topic for security alerts
 resource "aws_sns_topic" "security_alerts" {
   name = "security-alerts"
@@ -177,9 +172,4 @@ resource "aws_lambda_layer_version" "lambda_layer" {
 resource "aws_cloudwatch_log_group" "lambda_log_group" {
   name              = "/aws/lambda/file_transfer"
   retention_in_days = 14  # Adjust the retention period as needed
-}
-
-resource "aws_cloudwatch_log_group" "ec2_log_group" {
-  name = "/ec2/logs"
-  retention_in_days = 14  # Adjust as needed
 }

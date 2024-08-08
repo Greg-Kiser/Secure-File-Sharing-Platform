@@ -19,14 +19,6 @@ resource "aws_iam_policy" "s3_access_policy" {
                 "logs:PutLogEvents"
             ],
             "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "kms:GenerateDataKey",
-                "kms:Decrypt"
-            ],
-            "Resource": "arn:aws:kms:us-east-1:905418112205:key/b2ba47c7-1c13-4d89-ab58-48c7967b8ea1"
         }
     ]
 }
@@ -56,27 +48,29 @@ EOF
 
 # Attach the s3_access_policy to the ec2_role
 resource "aws_iam_role_policy_attachment" "ec2_s3_access_policy_attachment" {
-  role       = aws_iam_role.ec2_role.name
+  role       = var.ec2_role
   policy_arn = aws_iam_policy.s3_access_policy.arn
 }
 
 # Attach the SSM Policy to the ec2_role
 resource "aws_iam_role_policy_attachment" "SSM_policy_attachment" {
-  role       = aws_iam_role.ec2_role.name
+  role       = var.ec2_role
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMFullAccess"
+  depends_on = [ aws_iam_role.ec2_role ]
 }
 
 # Attach the Cloudwatch policy to the ec2_role
 resource "aws_iam_role_policy_attachment" "CloudWatch_policy_attachment" {
-  role       = aws_iam_role.ec2_role.name
+  role       = var.ec2_role
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
+  depends_on = [ aws_iam_role.ec2_role ]
 }
 
 
 # IAM instance profile for the EC2 instance
 resource "aws_iam_instance_profile" "ec2_instance_profile" {
   name = "ec2-instance-profile"
-  role = aws_iam_role.ec2_role.name
+  role = var.ec2_role
 }
 
 ####AWS Config Configuration#####
@@ -84,7 +78,7 @@ resource "aws_iam_instance_profile" "ec2_instance_profile" {
 resource "aws_s3_bucket_policy" "config_bucket_policy" {
 bucket = aws_s3_bucket.config_bucket.bucket
 
-policy = <<EOF
+policy = <<-EOF
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -176,16 +170,6 @@ resource "aws_securityhub_standards_subscription" "pci_dss" {
   standards_arn = "arn:aws:securityhub:us-east-1::standards/pci-dss/v/3.2.1"
 }
 
-#Create KMS Key for encrypting buckets
-resource "aws_kms_key" "s3_bucket_key" {
-  description = "KMS key for S3 bucket encryption"
-}
-
-resource "aws_kms_alias" "s3_bucket_key_alias" {
-  name          = "alias/s3-bucket-key"
-  target_key_id = aws_kms_key.s3_bucket_key.id
-}
-
 
 # Create an IAM role for EventBridge with the necessary permissions to publish to SNS
 resource "aws_iam_role" "eventbridge_role" {
@@ -212,7 +196,7 @@ resource "aws_iam_role_policy" "eventbridge_policy" {
   name = "eventbridge_policy"
   role = aws_iam_role.eventbridge_role.id
 
-  policy = <<EOF
+  policy = <<-EOF
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -312,20 +296,122 @@ resource "aws_iam_role_policy_attachment" "lambda_ec2_policy_attachment" {
   policy_arn = aws_iam_policy.lambda_ec2_policy.arn
 }
 
-resource "aws_security_group" "allow_ssh" {
-  name_prefix = "allow_ssh"
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+resource "aws_iam_policy" "workspaces_s3_access" {
+  name        = "workspaces_access"
+  description = "A policy to allow WorkSpaces to access the S3 buckets"
+  policy      = <<-EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListAllMyBuckets"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${var.original_reports_bucket}",
+        "arn:aws:s3:::${var.original_reports_bucket}/*",
+        "arn:aws:s3:::summarized-medical-reports-gk",
+        "arn:aws:s3:::summarized-medical-reports-gk/*"
+      ]
+    }
+  ]
 }
+EOF
+}
+/*
+resource "aws_iam_role_policy_attachment" "attach_s3_policy" {
+  role       = "workspaces_DefaultRole"
+  policy_arn = aws_iam_policy.workspaces_s3_access.arn
+  depends_on = [aws_workspaces_workspace.workspace]
+}
+
+
+#Bucket Policies to allow Workspaces users
+resource "aws_s3_bucket_policy" "original_medical_reports_policy" {
+  bucket = var.original_reports_bucket
+
+  policy = <<-EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::905418112205:user/S3user"
+      },
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${var.original_reports_bucket}",
+        "arn:aws:s3:::${var.original_reports_bucket}/*"
+      ]
+    }
+  ]
+}
+EOF
+depends_on = [ aws_iam_user.S3_user ]
+}
+
+resource "aws_s3_bucket_policy" "summarized_medical_reports_policy" {
+  bucket = var.summarized_reports_bucket
+
+  policy = <<-EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::905418112205:user/S3user"
+      },
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${var.summarized_reports_bucket}",
+        "arn:aws:s3:::${var.summarized_reports_bucket}/*"
+      ]
+    }
+  ]
+}
+EOF
+depends_on = [ aws_iam_user.S3_user ]
+}
+
+#IAM User to access the S3 buckets
+resource "aws_iam_user" "S3_user" {
+  name = var.S3_user
+}
+
+resource "aws_iam_group" "S3_access_group" {
+  name = "S3_access_group"
+
+}
+
+resource "aws_iam_group_policy_attachment" "S3_access_group_policy" {
+  group      = aws_iam_group.S3_access_group.name
+  policy_arn = aws_iam_policy.workspaces_s3_access.arn
+  
+}
+
+resource "aws_iam_group_membership" "S3_user_membership" {
+  name = var.S3_user
+  users = [aws_iam_user.S3_user.name]
+  group = aws_iam_group.S3_access_group.name
+  
+}*/

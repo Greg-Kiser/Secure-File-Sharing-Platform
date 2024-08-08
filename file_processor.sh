@@ -19,6 +19,16 @@ sudo rpm -Uvh amazon-cloudwatch-agent.rpm
 sudo systemctl start amazon-ssm-agent
 sudo systemctl enable amazon-ssm-agent
 
+# Install spaCy and its model
+echo "$(date): Installing spaCy and its model" >> /var/log/user-data.log
+pip3 install spacy >> /var/log/user-data.log 2>&1
+python3 -m spacy download en_core_web_sm >> /var/log/user-data.log 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "$(date): Failed to install spaCy or its model" >> /var/log/user-data.log
+    exit 1
+fi
+
 # Create directories for logs
 if [ ! -d /var/log/myapp ]; then
     sudo mkdir -p /var/log/myapp
@@ -56,37 +66,53 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Process the report
-# echo "$(date): Processing report" >> $LOG_FILE
-# python3 -c "
-# import spacy
-# nlp = spacy.load('en_core_web_sm')
-# with open('/home/ec2-user/reports/$1', 'r') as file:
-#     text = file.read()
-# doc = nlp(text)
-# summary = ' '.join([sent.text for sent in doc.sents][:5])  # Simple summarization
-# with open('/home/ec2-user/summarized/$1', 'w') as out_file:
-#     out_file.write(summary)
-# " >> $LOG_FILE 2>&1
+# Ensure the summarized directory exists
+if [ ! -d /home/ec2-user/summarized ]; then
+    mkdir -p /home/ec2-user/summarized
+    if [ $? -ne 0 ]; then
+        echo "$(date): Failed to create /home/ec2-user/summarized directory" >> $LOG_FILE
+        exit 1
+    else
+        echo "$(date): Created /home/ec2-user/summarized directory" >> $LOG_FILE
+    fi
+else
+    echo "$(date): /home/ec2-user/summarized directory already exists" >> $LOG_FILE
+fi
 
-# if [ $? -ne 0 ]; then
-#   echo "$(date): Failed to process report" >> $LOG_FILE
-#   exit 1
-# fi
-#End Report Processing
-
-# Upload the file to another S3 bucket
-echo "$(date): Uploading file to target S3 bucket" >> $LOG_FILE
-aws s3 cp /home/ec2-user/$1 s3://summarized-medical-reports-gk/$1 >> $LOG_FILE 2>&1
+# Process the report using spaCy
+echo "$(date): Processing report" >> $LOG_FILE
+python3 -c "
+import spacy
+nlp = spacy.load('en_core_web_sm')
+try:
+    with open('/home/ec2-user/$1', 'r') as file:
+        text = file.read()
+    doc = nlp(text)
+    summary = ' '.join([sent.text for sent in doc.sents][:5])  # Simple summarization
+    with open('/home/ec2-user/summarized/$1', 'w') as out_file:
+        out_file.write(summary)
+    print('Summarization successful')
+except Exception as e:
+    print(f'Error processing the report: {e}')
+" >> $LOG_FILE 2>&1
 
 if [ $? -ne 0 ]; then
-    echo "$(date): Failed to upload file to S3" >> $LOG_FILE
+    echo "$(date): Failed to process report" >> $LOG_FILE
+    exit 1
+fi
+
+# Upload the summarized file to another S3 bucket
+echo "$(date): Uploading summarized file to target S3 bucket" >> $LOG_FILE
+aws s3 cp /home/ec2-user/summarized/$1 s3://summarized-medical-reports-gk/summarized_$1 >> $LOG_FILE 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "$(date): Failed to upload summarized file to S3" >> $LOG_FILE
     exit 1
 fi
 
 # Clean up
 echo "$(date): Cleaning up" >> $LOG_FILE
-rm /home/ec2-user/$1 >> $LOG_FILE 2>&1
+rm /home/ec2-user/$1 /home/ec2-user/summarized/$1 >> $LOG_FILE 2>&1
 
 if [ $? -ne 0 ]; then
     echo "$(date): Cleanup failed" >> $LOG_FILE
