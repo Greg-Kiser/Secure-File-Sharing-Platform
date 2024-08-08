@@ -328,7 +328,7 @@ resource "aws_iam_policy" "workspaces_s3_access" {
 }
 EOF
 }
-/*
+
 resource "aws_iam_role_policy_attachment" "attach_s3_policy" {
   role       = "workspaces_DefaultRole"
   policy_arn = aws_iam_policy.workspaces_s3_access.arn
@@ -414,4 +414,4 @@ resource "aws_iam_group_membership" "S3_user_membership" {
   users = [aws_iam_user.S3_user.name]
   group = aws_iam_group.S3_access_group.name
   
-}*/
+}

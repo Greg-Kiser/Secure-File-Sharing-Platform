@@ -54,7 +54,7 @@ resource "aws_instance" "file_processor" {
   }
 }
 
-/*
+
 #Creating the Workspaces Directory 
 resource "aws_directory_service_directory" "workspaces_directory" {
   name = "securefile.example.com"
@@ -89,7 +89,7 @@ resource "aws_workspaces_workspace" "workspace" {
 
 depends_on = [ aws_workspaces_directory.directory ]
 }
-*/
+
 #Create an SNS topic for security alerts
 resource "aws_sns_topic" "security_alerts" {
   name = "security-alerts"
