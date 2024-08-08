@@ -73,10 +73,17 @@ Ultimately, this combined with several other KMS decryption and encryption issue
 
 There are several improvements that could be made to the project in the future. 
 
-Hardening the Infrastructure 
+Lambda would be a better for the given use case instead of using an EC2 instance. However, I wanted to utilize the EC2 service for experience on this particular project. I will update this to a Lambda function in the future.
+
+Hardening the Infrastructure:
+
 •	Swap to using KMS for encryption so that all API calls against the key can be tracked via CloudTrail.
+
 •	IP Access Controls for Work Spaces – Lock down the Ips that access the workstations.
+
 •	Move the EC2 instance into a private subnet and set up a NAT Gateway.
+
+
 
 
 
